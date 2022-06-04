@@ -65,7 +65,8 @@ action:
         before: !input night_time_till
       sequence:
         - service: light.turn_on
-          target: !input target_light
+          target:
+            entity_id: !input target_light
           data:
             brightness_pct: !input night_brightness
             color_temp: !input night_temperature
@@ -78,7 +79,9 @@ action:
         before: !input night_time_from
       sequence:
         - service: light.turn_on
-          target: !input target_light
+          target:
+            entity_id: !input target_light
     default:
       - service: light.turn_off
-        target: !input target_light
+        target:
+          entity_id: !input target_light
