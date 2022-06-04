@@ -1,0 +1,75 @@
+blueprint:
+  domain: automation
+  name: Light switch with configurable brightness for Day/Night
+  description: Turns a light on from a switch with configurable brightness depending on Day/Night time.
+
+  input:
+    source_switch:
+      name: Light switch
+      description: The switch that should trigger this automation.
+      selector:
+        entity:
+          domain: binary_sensor
+
+    target_light:
+      name: Light
+      description: The light source that should be turned on/off.
+      selector:
+        target:
+          entity:
+            domain: light
+
+    night_time_from:
+      name: Night time from
+      description: Moment in time when night time starts.
+      selector:
+        time: {}
+
+    night_time_till:
+      name: Night time till
+      description: Moment in time when night time ends.
+      selector:
+        time: {}
+
+    night_brightness:
+      name: Brightness at night
+      description: The brightness of the light during night time.
+      default: 20
+      selector:
+        number:
+          min: 1.0
+          max: 100.0
+          step: 1.0
+          mode: slider
+
+    night_temperature:
+      name: Temperature at night
+      description: The temperature of the light during night time.
+      default: 1
+      selector:
+        color_temp:
+
+
+trigger:
+  platform: state
+  entity_id: !input source_switch
+
+action:
+  - choose:
+    - conditions:
+      - condition: time
+        after: !input night_time_from
+        before: !input night_time_till
+      sequence:
+        - alias: "Turn light on"
+          service: light.turn_on
+          target:
+            entity_id: !input target_light
+          data:
+            brightness_pct: !input night_brightness
+            color_temp: !input night_temperature
+    default:
+      - alias: "Turn light off"    
+        service: light.turn_off
+        target:
+          entity_id: !input target_light
