@@ -67,7 +67,20 @@ action:
           data:
             brightness_pct: !input night_brightness
             color_temp: !input night_temperature
+    - conditions:
+      - condition: state
+        entity_id: light.verlichting_hal
+        state: 'off'
+      - condition: time
+        after: !input night_time_till
+        before: !input night_time_from
+      sequence:
+        - service: light.turn_on
+          target:
+            entity_id: !input target_light
+          data: {}
     default:
       - service: light.turn_off
         target:
           entity_id: !input target_light
+        data: {}
