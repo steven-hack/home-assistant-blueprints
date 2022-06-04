@@ -57,6 +57,9 @@ trigger:
 action:
   - choose:
     - conditions:
+      - condition: state
+        entity_id: !input target_light
+        state: 'off'
       - condition: time
         after: !input night_time_from
         before: !input night_time_till
@@ -68,7 +71,7 @@ action:
             color_temp: !input night_temperature
     - conditions:
       - condition: state
-        entity_id: light.verlichting_hal
+        entity_id: !input target_light
         state: 'off'
       - condition: time
         after: !input night_time_till
