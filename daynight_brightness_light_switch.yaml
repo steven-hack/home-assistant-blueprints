@@ -16,7 +16,9 @@ blueprint:
       description: The light source that should be turned on/off.
       selector:
         entity:
-          domain: light
+          domain:
+            - light
+            - switch
 
     night_time_from:
       name: Night time from
