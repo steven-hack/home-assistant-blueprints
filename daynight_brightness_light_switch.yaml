@@ -18,7 +18,6 @@ blueprint:
         entity:
           domain:
             - light
-            - switch
 
     day_brightness:
       name: Brightness at day
