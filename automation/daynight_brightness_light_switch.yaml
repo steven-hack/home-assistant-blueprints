@@ -71,6 +71,13 @@ trigger:
   platform: state
   entity_id: !input source_switch
 
+condition:
+  - condition: state
+    entity_id: !input source_switch
+    state:
+      - 'on'
+      - 'off'
+
 action:
   - choose:
     - conditions:
