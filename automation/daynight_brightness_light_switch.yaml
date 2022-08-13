@@ -70,13 +70,12 @@ blueprint:
 trigger:
   platform: state
   entity_id: !input source_switch
-
-condition:
-  - condition: state
-    entity_id: !input source_switch
-    state:
-      - 'on'
-      - 'off'
+  from:
+    - 'on'
+    - 'off'
+  to:
+    - 'on'
+    - 'off'
 
 action:
   - choose:
