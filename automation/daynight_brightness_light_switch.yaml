@@ -86,6 +86,19 @@ trigger:
 
 action:
   - choose:
+    # We want to ensure the relay is turned on to provide power to the light
+    # For example when in offline/hardware mode and the relay was still turned of
+    - conditions:
+      - condition: state
+        entity_id: !input target_light
+        state:
+          - 'on'
+          - 'off'
+      sequence:
+        - service: switch.turn_on
+          target:
+            entity_id: !input source_relay
+    # When the light is on, simply turn it off
     - conditions:
       - condition: state
         entity_id: !input target_light
@@ -94,16 +107,6 @@ action:
         - service: light.turn_off
           target:
             entity_id: !input target_light
-    # We want to ensure the relay is turned on to provide power to the light
-    # For example when in offline/hardware mode and the relay was still turned of
-    - conditions:
-      - condition: state
-        entity_id: !input target_light
-        state: 'on'
-      sequence:
-        - service: switch.turn_on
-          target:
-            entity_id: !input source_relay
     # When it is night time, we want to use the night brightness & temperature
     - conditions:
       - condition: state
