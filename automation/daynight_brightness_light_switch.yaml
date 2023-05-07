@@ -85,19 +85,21 @@ trigger:
     - 'off'
 
 action:
-  - choose:
     # We want to ensure the relay is turned on to provide power to the light
     # For example when in offline/hardware mode and the relay was still turned of
-    - conditions:
-      - condition: state
-        entity_id: !input target_light
-        state:
-          - 'on'
-          - 'off'
-      sequence:
-        - service: switch.turn_on
-          target:
-            entity_id: !input source_relay
+  - if:
+    - condition: state
+      entity_id: !input target_light
+      state:
+        - 'on'
+        - 'off'
+    then:
+      # No need to check if it is off, because Home Assistant does this internally
+      - service: switch.turn_on
+        target:
+          entity_id: !input source_relay
+
+  - choose:
     # When the light is on, simply turn it off
     - conditions:
       - condition: state
