@@ -82,6 +82,25 @@ action:
     - conditions:
       - condition: state
         entity_id: !input target_light
+        state: 'on'
+      sequence:
+        - service: light.turn_off
+          target:
+            entity_id: !input target_light
+    # We want to ensure the switch is turned on to provide power to the light
+    # For example when in offline/hardware mode and the switch was still turned of
+    - conditions:
+      - condition: state
+        entity_id: !input target_light
+        state: 'on'
+      sequence:
+        - service: switch.turn_on
+          target:
+            entity_id: !input source_switch
+    # When it is night time, we want to use the night brightness & temperature
+    - conditions:
+      - condition: state
+        entity_id: !input target_light
         state: 'off'
       - condition: time
         after: !input night_time_from
@@ -93,6 +112,7 @@ action:
           data:
             brightness_pct: !input night_brightness
             color_temp: !input night_temperature
+    # When it is day time, we want to use the day brightness & temperature
     - conditions:
       - condition: state
         entity_id: !input target_light
@@ -107,7 +127,8 @@ action:
           data:
             brightness_pct: !input day_brightness
             color_temp: !input day_temperature
+    # If the target light is in an unknown state, we fall back to offline/hardware mode
     default:
-      - service: light.turn_off
+      - service: switch.toggle
         target:
-          entity_id: !input target_light
+          entity_id: !input source_switch
