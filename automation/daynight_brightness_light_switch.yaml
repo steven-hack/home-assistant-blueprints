@@ -10,6 +10,7 @@ blueprint:
       selector:
         entity:
           domain: switch
+      default: {}
 
     source_switch:
       name: Switch
@@ -87,12 +88,14 @@ trigger:
 action:
     # We want to ensure the relay is turned on to provide power to the light
     # For example when in offline/hardware mode and the relay was still turned of
+    # Ofcourse only when a relay is defined
   - if:
     - condition: state
       entity_id: !input target_light
       state:
         - 'on'
         - 'off'
+    - "{{ source_relay|length > 0 }}"
     then:
       # No need to check if it is off, because Home Assistant does this internally
       - service: switch.turn_on
@@ -139,8 +142,9 @@ action:
           data:
             brightness_pct: !input day_brightness
             color_temp: !input day_temperature
-    # If the target light is in an unknown state, we fall back to offline/hardware mode and toggle the relay
-    default:
-      - service: switch.toggle
-        target:
-          entity_id: !input source_relay
+    # If the target light is in an unknown state, we fall back to offline/hardware mode and toggle the relay, if one is defined
+    - conditions: "{{ source_relay|length > 0 }}"
+      sequence:
+        - service: switch.toggle
+          target:
+            entity_id: !input source_relay
