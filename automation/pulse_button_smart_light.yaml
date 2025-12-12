@@ -6,11 +6,14 @@ blueprint:
     Supports dimming in increments of 5% when holding the button.
 
   input:
-    source_event:
-      name: Event
-      description: The event that should trigger this automation.
+    source_trigger:
+      name: Trigger
+      description: The trigger (single/long) for this automation.
       selector:
-        text:
+        select:
+          options:
+            - single
+            - long
 
     source_dimmer_state:
       name: Dimmer state
@@ -76,16 +79,12 @@ blueprint:
       selector:
         time: {}
 
-trigger:
-  - platform: event
-    event_type: !input source_event
-
 action:
   - choose:
       # ---- SINGLE: toggle ----
       - conditions:
           - condition: template
-            value_template: "{{ trigger.event.data.event_type == 'single' }}"
+            value_template: "{{ iif(input.source_trigger is defined, input.source_trigger, '') == 'single' }}"
         sequence:
           # altijd reset dim direction when turning the light on
           - service: input_boolean.turn_on
@@ -136,7 +135,7 @@ action:
       # ---- LONG: dimming ----
       - conditions:
           - condition: template
-            value_template: "{{ trigger.event.data.event_type == 'long' }}"
+            value_template: "{{ iif(input.source_trigger is defined, input.source_trigger, '') == 'long' }}"
         sequence:
           - choose:
               # up
