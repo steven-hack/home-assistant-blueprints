@@ -1,7 +1,7 @@
 blueprint:
   domain: automation
-  name: Light switch with configurable brightness for Day/Night
-  description: Turns a light on from a switch with configurable brightness depending on Day/Night time.
+  name: Switch button for lights with configurable brightness for day/night
+  description: Turns a light on from a switch with configurable brightness depending on day/night time.
 
   input:
     source_relay:
@@ -24,24 +24,24 @@ blueprint:
       description: The light source that should be turned on/off.
       selector:
         entity:
-          domain:
-            - light
+          domain: light
 
     day_brightness:
       name: Brightness at day
       description: The brightness of the light during day time.
-      default: 100
+      default: 80
       selector:
         number:
-          min: 1.0
-          max: 100.0
-          step: 1.0
+          min: 1
+          max: 100
+          step: 1
           mode: slider
+          unit_of_measurement: "%"
 
     day_temperature:
       name: Temperature at day
       description: The temperature of the light during day time.
-      default: 1
+      default: 425
       selector:
         color_temp:
 
@@ -51,15 +51,16 @@ blueprint:
       default: 20
       selector:
         number:
-          min: 1.0
-          max: 100.0
-          step: 1.0
+          min: 1
+          max: 100
+          step: 1
           mode: slider
+          unit_of_measurement: "%"
 
     night_temperature:
       name: Temperature at night
       description: The temperature of the light during night time.
-      default: 1
+      default: 454
       selector:
         color_temp:
 

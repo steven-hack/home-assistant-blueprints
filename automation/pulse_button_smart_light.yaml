@@ -1,0 +1,176 @@
+blueprint:
+  domain: automation
+  name: Pulse button for lights with configurable brightness for day/night
+  description: >
+    Turns a light on from a pulse button with configurable brightness depending on day/night time.
+    Supports dimming in increments of 5% when holding the button.
+
+  input:
+    source_event:
+      name: Event
+      description: The event that should trigger this automation.
+      selector:
+        text:
+
+    source_dimmer_state:
+      name: Dimmer state
+      description: The source for checking the current state of the dimmer direction.
+      selector:
+        entity:
+          domain: input_boolean
+
+    target_light:
+      name: Light
+      description: The light source that should be turned on/off.
+      selector:
+        entity:
+          domain: light
+
+    day_brightness:
+      name: Brightness at day
+      description: The brightness of the light during day time.
+      default: 80
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+          unit_of_measurement: "%"
+
+    day_temperature:
+      name: Temperature at day
+      description: The temperature of the light during day time.
+      default: 425
+      selector:
+        color_temp:
+
+    night_brightness:
+      name: Brightness at night
+      description: The brightness of the light during night time.
+      default: 20
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+          unit_of_measurement: "%"
+
+    night_temperature:
+      name: Temperature at night
+      description: The temperature of the light during night time.
+      default: 425
+      selector:
+        color_temp:
+
+    night_time_from:
+      name: Night time from
+      description: Moment in time when night time starts.
+      selector:
+        time: {}
+
+    night_time_till:
+      name: Night time till
+      description: Moment in time when night time ends.
+      selector:
+        time: {}
+
+trigger:
+  - platform: event
+    event_type: !input source_event
+
+action:
+  - choose:
+      # ---- SINGLE: toggle ----
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.event_type == 'single' }}"
+        sequence:
+          # altijd reset dim direction when turning the light on
+          - service: input_boolean.turn_on
+            target:
+              entity_id: !input source_dimmer_state
+
+          - choose:
+            # When the light is on, simply turn it off
+            - conditions:
+              - condition: state
+                entity_id: !input target_light
+                state: 'on'
+              sequence:
+                - service: light.turn_off
+                  target:
+                    entity_id: !input target_light
+            # When it is night time, we want to use the night brightness & temperature
+            - conditions:
+              - condition: state
+                entity_id: !input target_light
+                state: 'off'
+              - condition: time
+                after: !input night_time_from
+                before: !input night_time_till
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input target_light
+                  data:
+                    brightness_pct: !input night_brightness
+                    color_temp: !input night_temperature
+            # When it is day time, we want to use the day brightness & temperature
+            - conditions:
+              - condition: state
+                entity_id: !input target_light
+                state: 'off'
+              - condition: time
+                after: !input night_time_till
+                before: !input night_time_from
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: !input target_light
+                  data:
+                    brightness_pct: !input day_brightness
+                    color_temp: !input day_temperature
+            # If the target light is in an unknown state, we fall back to offline/hardware mode and toggle the relay, if one is defined
+            - conditions: "{{ source_relay|length > 0 }}"
+              sequence:
+                - service: switch.toggle
+                  target:
+                    entity_id: !input source_relay
+
+      # ---- LONG: dimming ----
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.event.data.event_type == 'long' }}"
+        sequence:
+          - choose:
+              # up
+              - conditions:
+                  - condition: state
+                    entity_id: !input source_dimmer_state
+                    state: "on"
+                sequence:
+                  - service: input_boolean.turn_off
+                    target:
+                      entity_id: !input source_dimmer_state
+                  - service: light.turn_on
+                    target:
+                      entity_id: !input target_light
+                    data:
+                      brightness_step_pct: 5
+
+              # down
+              - conditions:
+                  - condition: state
+                    entity_id: !input source_dimmer_state
+                    state: "off"
+                sequence:
+                  - service: input_boolean.turn_on
+                    target:
+                      entity_id: !input source_dimmer_state
+                  - service: light.turn_on
+                    target:
+                      entity_id: !input target_light
+                    data:
+                      brightness_step_pct: -5
