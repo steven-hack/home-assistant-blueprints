@@ -7,7 +7,7 @@ blueprint:
 
   input:
     source_device:
-      name: Button Device
+      name: Device
       description: The device that will trigger this automation.
       selector:
         device:
@@ -87,7 +87,7 @@ blueprint:
         time: {}
 
 trigger:
-  - device_id: !input button_device
+  - device_id: !input source_device
     trigger: device
     domain: shelly
     type: !input source_trigger
