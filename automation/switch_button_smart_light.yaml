@@ -38,13 +38,6 @@ blueprint:
           mode: slider
           unit_of_measurement: "%"
 
-    day_temperature:
-      name: Temperature at day
-      description: The temperature of the light during day time.
-      default: 425
-      selector:
-        color_temp:
-
     night_brightness:
       name: Brightness at night
       description: The brightness of the light during night time.
@@ -56,13 +49,6 @@ blueprint:
           step: 1
           mode: slider
           unit_of_measurement: "%"
-
-    night_temperature:
-      name: Temperature at night
-      description: The temperature of the light during night time.
-      default: 454
-      selector:
-        color_temp:
 
     night_time_from:
       name: Night time from
@@ -113,7 +99,7 @@ action:
         - service: light.turn_off
           target:
             entity_id: !input target_light
-    # When it is night time, we want to use the night brightness & temperature
+    # When it is night time, we want to use the night brightness
     - conditions:
       - condition: state
         entity_id: !input target_light
@@ -127,8 +113,7 @@ action:
             entity_id: !input target_light
           data:
             brightness_pct: !input night_brightness
-            color_temp: !input night_temperature
-    # When it is day time, we want to use the day brightness & temperature
+    # When it is day time, we want to use the day brightness
     - conditions:
       - condition: state
         entity_id: !input target_light
@@ -142,7 +127,6 @@ action:
             entity_id: !input target_light
           data:
             brightness_pct: !input day_brightness
-            color_temp: !input day_temperature
     # If the target light is in an unknown state, we fall back to offline/hardware mode and toggle the relay, if one is defined
     - conditions: "{{ source_relay|length > 0 }}"
       sequence:
