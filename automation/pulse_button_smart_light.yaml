@@ -13,15 +13,6 @@ blueprint:
         device:
           integration: shelly
 
-    source_trigger:
-      name: Trigger
-      description: The trigger (single/long) for this automation.
-      selector:
-        select:
-          options:
-            - single
-            - long
-
     source_dimmer_state:
       name: Dimmer state
       description: The source for checking the current state of the dimmer direction.
@@ -90,7 +81,7 @@ trigger:
   - device_id: !input source_device
     trigger: device
     domain: shelly
-    type: !input source_trigger
+    type: single
     subtype: button1
 
 action:
@@ -98,7 +89,7 @@ action:
       # ---- SINGLE: toggle ----
       - conditions:
           - condition: template
-            value_template: "{{ iif(input.source_trigger is defined, input.source_trigger, '') == 'single' }}"
+            value_template: "{{ trigger.type == 'single' }}"
         sequence:
           # altijd reset dim direction when turning the light on
           - service: input_boolean.turn_on
@@ -149,7 +140,7 @@ action:
       # ---- LONG: dimming ----
       - conditions:
           - condition: template
-            value_template: "{{ iif(input.source_trigger is defined, input.source_trigger, '') == 'long' }}"
+            value_template: "{{ trigger.type == 'long' }}"
         sequence:
           - choose:
               # up
