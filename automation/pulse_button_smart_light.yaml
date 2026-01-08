@@ -6,6 +6,13 @@ blueprint:
     Supports dimming in increments of 5% when holding the button.
 
   input:
+    source_device:
+      name: Button Device
+      description: The device that will trigger this automation.
+      selector:
+        device:
+          integration: shelly
+
     source_trigger:
       name: Trigger
       description: The trigger (single/long) for this automation.
@@ -78,6 +85,13 @@ blueprint:
       description: Moment in time when night time ends.
       selector:
         time: {}
+
+trigger:
+  - device_id: !input button_device
+    trigger: device
+    domain: shelly
+    type: !input source_trigger
+    subtype: button1
 
 action:
   - choose:
