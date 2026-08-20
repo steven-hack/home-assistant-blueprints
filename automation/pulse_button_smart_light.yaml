@@ -71,12 +71,6 @@ trigger:
     subtype: button1
 
 action:
-  # Debug: log alle trigger informatie
-  - service: system_log.write
-    data:
-      message: "Blueprint triggered - device_id: {{ trigger.device_id }}, type: {{ trigger.type }}, subtype: {{ trigger.subtype }}"
-      level: warning
-
   - choose:
       # ---- SINGLE: toggle ----
       - conditions:
