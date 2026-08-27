@@ -41,7 +41,7 @@ blueprint:
     night_brightness:
       name: Brightness at night
       description: The brightness of the light during night time.
-      default: 20
+      default: 40
       selector:
         number:
           min: 1
