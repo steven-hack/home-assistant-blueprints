@@ -76,8 +76,8 @@ blueprint:
 
     dimming_step:
       name: Dimming step
-      description: Brightness change per dimming step.
-      default: 10
+      description: Brightness change per dimming step. Smaller steps with a shorter interval feel smoother.
+      default: 5
       selector:
         number:
           min: 1
@@ -88,15 +88,25 @@ blueprint:
 
     dimming_interval:
       name: Dimming interval
-      description: Time between dimming steps.
-      default: 300
+      description: Time between dimming steps, each step fades to the new brightness in this time.
+      default: 150
       selector:
         number:
-          min: 100
+          min: 50
           max: 2000
           step: 50
           mode: slider
           unit_of_measurement: ms
+
+    dimming_direction:
+      name: Dimming direction helper
+      description: >-
+        Optional helper that remembers the direction of the last long press, so the next long press dims the
+        other way. Without it, the light dims down when brighter than 50% and up otherwise.
+      selector:
+        entity:
+          domain: input_boolean
+      default: {}
 
 # Single mode: the press_end of the running press is handled inside the run, not by a new run
 mode: single
@@ -124,6 +134,7 @@ variables:
   long_press_delay: !input long_press_delay
   dimming_step: !input dimming_step
   dimming_interval: !input dimming_interval
+  dimming_direction: !input dimming_direction
   min_brightness: 10
   max_brightness: 100
 
@@ -228,26 +239,50 @@ actions:
                   entity_id: !input target_light
                 data:
                   brightness_pct: "{{ brightness }}"
-              - delay:
+              - wait_template: "{{ state_attr(source_event, 'event_type') != 'press_start' }}"
+                timeout:
                   milliseconds: "{{ dimming_interval }}"
+                continue_on_timeout: true
 
+          # At a brightness boundary there is only one way to go, otherwise the opposite of the last long press
+          # (when a direction helper is defined) or away from the nearest boundary
           - variables:
-              direction: "{{ 'down' if brightness > 50 else 'up' }}"
+              direction: >-
+                {{ 'down' if brightness >= max_brightness
+                   else 'up' if brightness <= min_brightness
+                   else ('down' if is_state(dimming_direction, 'on') else 'up') if dimming_direction | length > 0
+                   else 'down' if brightness > 50
+                   else 'up' }}
+              last_direction: ""
 
           # Keep dimming while the button is held, capped to prevent endless dimming when the press_end event is missed
           - repeat:
               while:
                 - "{{ state_attr(source_event, 'event_type') == 'press_start' }}"
-                - "{{ repeat.index <= 100 }}"
+                - "{{ repeat.index <= 200 }}"
               sequence:
                 - variables:
                     brightness: "{{ ([brightness + dimming_step, max_brightness] | min if direction == 'up' else [brightness - dimming_step, min_brightness] | max) | int }}"
+                    last_direction: "{{ direction }}"
                     # Reverse the direction when a brightness boundary is reached
                     direction: "{{ 'down' if brightness >= max_brightness else 'up' if brightness <= min_brightness else direction }}"
+                # Fade to the new brightness during the interval, so the steps blend into a continuous dim
                 - action: light.turn_on
                   target:
                     entity_id: !input target_light
                   data:
                     brightness_pct: "{{ brightness }}"
-                - delay:
+                    transition: "{{ dimming_interval / 1000 }}"
+                # Stop waiting as soon as the button is released, to prevent dimming beyond the release
+                - wait_template: "{{ state_attr(source_event, 'event_type') != 'press_start' }}"
+                  timeout:
                     milliseconds: "{{ dimming_interval }}"
+                  continue_on_timeout: true
+
+          # Remember the last dimming direction (on = up), so the next long press dims the other way
+          - if:
+              - "{{ dimming_direction | length > 0 and last_direction != '' }}"
+            then:
+              - action: "input_boolean.turn_{{ 'on' if last_direction == 'up' else 'off' }}"
+                target:
+                  entity_id: !input dimming_direction
