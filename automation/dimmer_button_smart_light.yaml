@@ -1,0 +1,253 @@
+blueprint:
+  domain: automation
+  name: Dimmer button for lights with configurable brightness for day/night
+  description: Dims a light using a pulse switch with configurable brightness depending on day/night time.
+
+  input:
+    source_relay:
+      name: Relay
+      description: The relay that provides physical power to the light source.
+      selector:
+        entity:
+          domain: switch
+      default: {}
+
+    source_event:
+      name: Button event
+      description: The event entity of the button, which fires `press_start` and `press_end` events.
+      selector:
+        entity:
+          domain: event
+
+    target_light:
+      name: Light
+      description: The light source that should be turned on/off and dimmed.
+      selector:
+        entity:
+          domain: light
+
+    day_brightness:
+      name: Brightness at day
+      description: The brightness of the light during day time.
+      default: 80
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+          unit_of_measurement: "%"
+
+    night_brightness:
+      name: Brightness at night
+      description: The brightness of the light during night time.
+      default: 40
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          mode: slider
+          unit_of_measurement: "%"
+
+    night_time_from:
+      name: Night time from
+      description: Moment in time when night time starts.
+      selector:
+        time: {}
+
+    night_time_till:
+      name: Night time till
+      description: Moment in time when night time ends.
+      selector:
+        time: {}
+
+    long_press_delay:
+      name: Long press delay
+      description: How long the button must be held before it counts as a long press.
+      default: 500
+      selector:
+        number:
+          min: 200
+          max: 2000
+          step: 50
+          mode: slider
+          unit_of_measurement: ms
+
+    dimming_step:
+      name: Dimming step
+      description: Brightness change per dimming step.
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          mode: slider
+          unit_of_measurement: "%"
+
+    dimming_interval:
+      name: Dimming interval
+      description: Time between dimming steps.
+      default: 300
+      selector:
+        number:
+          min: 100
+          max: 2000
+          step: 50
+          mode: slider
+          unit_of_measurement: ms
+
+# Single mode: the press_end of the running press is handled inside the run, not by a new run
+mode: single
+max_exceeded: silent
+
+triggers:
+  - trigger: state
+    entity_id: !input source_event
+    # Prevents a restored press_start from triggering when the device comes back online
+    not_from:
+      - unavailable
+    not_to:
+      - unavailable
+      - unknown
+
+conditions:
+  - "{{ trigger.to_state.attributes.event_type == 'press_start' }}"
+
+variables:
+  source_relay: !input source_relay
+  source_event: !input source_event
+  target_light: !input target_light
+  day_brightness: !input day_brightness
+  night_brightness: !input night_brightness
+  long_press_delay: !input long_press_delay
+  dimming_step: !input dimming_step
+  dimming_interval: !input dimming_interval
+  min_brightness: 10
+  max_brightness: 100
+
+actions:
+  # Wait for the button to be released, if it isn't released in time it's a long press
+  - wait_template: "{{ state_attr(source_event, 'event_type') != 'press_start' }}"
+    timeout:
+      milliseconds: "{{ long_press_delay }}"
+    continue_on_timeout: true
+
+  # We want to ensure the relay is turned on to provide power to the light
+  # For example when in offline/hardware mode and the relay was still turned off
+  # Ofcourse only when a relay is defined
+  - if:
+      - condition: state
+        entity_id: !input target_light
+        state:
+          - "on"
+          - "off"
+      - "{{ source_relay | length > 0 }}"
+    then:
+      # No need to check if it is off, because Home Assistant does this internally
+      - action: switch.turn_on
+        target:
+          entity_id: !input source_relay
+
+  - choose:
+      # Short press
+      - conditions: "{{ wait.completed }}"
+        sequence:
+          - choose:
+              # When the light is on, simply turn it off
+              - conditions:
+                  - condition: state
+                    entity_id: !input target_light
+                    state: "on"
+                sequence:
+                  - action: light.turn_off
+                    target:
+                      entity_id: !input target_light
+              # When it is night time, we want to use the night brightness
+              - conditions:
+                  - condition: state
+                    entity_id: !input target_light
+                    state: "off"
+                  - condition: time
+                    after: !input night_time_from
+                    before: !input night_time_till
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input target_light
+                    data:
+                      brightness_pct: !input night_brightness
+              # When it is day time, we want to use the day brightness
+              - conditions:
+                  - condition: state
+                    entity_id: !input target_light
+                    state: "off"
+                  - condition: time
+                    after: !input night_time_till
+                    before: !input night_time_from
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input target_light
+                    data:
+                      brightness_pct: !input day_brightness
+              # If the target light is in an unknown state, we fall back to offline/hardware mode and toggle the relay, if one is defined
+              - conditions: "{{ source_relay | length > 0 }}"
+                sequence:
+                  - action: switch.toggle
+                    target:
+                      entity_id: !input source_relay
+
+      # Long press, dimming is only possible when the light is reachable
+      - conditions:
+          - condition: state
+            entity_id: !input target_light
+            state:
+              - "on"
+              - "off"
+        sequence:
+          - variables:
+              brightness: "{{ ((state_attr(target_light, 'brightness') | int(255)) / 255 * 100) | round(0) | int if is_state(target_light, 'on') else day_brightness | int }}"
+
+          # Turn the light on at the same day/night brightness as a short press before dimming
+          - if:
+              - condition: state
+                entity_id: !input target_light
+                state: "off"
+            then:
+              - if:
+                  - condition: time
+                    after: !input night_time_from
+                    before: !input night_time_till
+                then:
+                  - variables:
+                      brightness: "{{ night_brightness | int }}"
+              - action: light.turn_on
+                target:
+                  entity_id: !input target_light
+                data:
+                  brightness_pct: "{{ brightness }}"
+              - delay:
+                  milliseconds: "{{ dimming_interval }}"
+
+          - variables:
+              direction: "{{ 'down' if brightness > 50 else 'up' }}"
+
+          # Keep dimming while the button is held, capped to prevent endless dimming when the press_end event is missed
+          - repeat:
+              while:
+                - "{{ state_attr(source_event, 'event_type') == 'press_start' }}"
+                - "{{ repeat.index <= 100 }}"
+              sequence:
+                - variables:
+                    brightness: "{{ ([brightness + dimming_step, max_brightness] | min if direction == 'up' else [brightness - dimming_step, min_brightness] | max) | int }}"
+                    # Reverse the direction when a brightness boundary is reached
+                    direction: "{{ 'down' if brightness >= max_brightness else 'up' if brightness <= min_brightness else direction }}"
+                - action: light.turn_on
+                  target:
+                    entity_id: !input target_light
+                  data:
+                    brightness_pct: "{{ brightness }}"
+                - delay:
+                    milliseconds: "{{ dimming_interval }}"
